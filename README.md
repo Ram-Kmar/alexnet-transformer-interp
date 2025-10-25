@@ -1,0 +1,1 @@
+An end to end pipeline to find and analyze conceptual features in a vision model using a Sparse Autoencoder (SAE) on the transformer's residual stream. Basedon current interpretability research. methods gain from (gemma scope paper).
