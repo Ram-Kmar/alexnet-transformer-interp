@@ -390,7 +390,7 @@ def main():
         train_sae()
     elif train == False and inference == True:
         run_inference()
-    else:
+    elif train == False and inference==False:
         print("Provide task you want to do : --train=True or --inference=True")
 
 if __name__ == '__main__':
