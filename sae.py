@@ -36,9 +36,9 @@ BATCH_SIZE = 128
 EPOCHS = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
-print(f"Using device: {DEVICE}")
-print(f"Loading activations from: {os.path.abspath(ACTIVATION_DIR)}")
-print(f"SAE dimensions: d_model={D_MODEL}, d_sae={D_SAE}")
+# print(f"Using device: {DEVICE}")
+# print(f"Loading activations from: {os.path.abspath(ACTIVATION_DIR)}")
+# print(f"SAE dimensions: d_model={D_MODEL}, d_sae={D_SAE}")
 
 @torch.no_grad()
 def get_dataset_variance(dataloader: DataLoader, device: torch.device) -> torch.Tensor:
@@ -264,7 +264,6 @@ def train_sae():
         avg_fvu = avg_mse / dataset_variance.item()
         # --- END NEW ---
         
-        print(f"Epoch {epoch+1} Complete:")
         # --- MODIFIED: Added Avg FVU to the print statement ---
         print(f"  Avg Loss: {avg_loss:.4e} | Avg MSE: {avg_mse:.4e} | Avg FVU: {avg_fvu:.4f} | Avg L0: {avg_l0:.2f}")
 
@@ -319,7 +318,7 @@ def run_inference():
     # --- Run data through the SAE ---
     # recon_acts: The model's reconstruction
     # sae_acts: The sparse feature activations (the "concepts")
-    recon_acts, sae_acts = model(batch_data)
+    recon_acts, sae_acts , pre_acts= model(batch_data)
 
     # --- Analyze the results ---
     
@@ -384,7 +383,7 @@ def main():
     args = parser.parse_args()
     # num_epochs = args.epochs  # This is our new "total epochs"
     train = args.train
-    inference = args.store_activation
+    inference = args.inference
 
     if train == True and inference == False:
         train_sae()
@@ -394,4 +393,4 @@ def main():
         print("Provide task you want to do : --train=True or --inference=True")
 
 if __name__ == '__main__':
-    train_sae()
+    main()
