@@ -229,6 +229,7 @@ def get_data_loaders(
     return train_loader, val_loader
 
 
+#save the model
 def save_checkpoint(
     model: nn.Module, 
     optimizer: optim.Optimizer, 
@@ -247,7 +248,7 @@ def save_checkpoint(
         'history': history, 
     }, path)
 
-
+#load the checkpoint
 def load_checkpoint(
     model: nn.Module, 
     optimizer: optim.Optimizer, 
@@ -268,9 +269,9 @@ def load_checkpoint(
     })
 
     print(f"Resumed from epoch {start_epoch} (last saved loss: {loss:.4f})")
-    return start_epoch, loss,history
+    return start_epoch, loss, history
 
-
+# Actual training function
 def train_one_epoch(
     model: nn.Module, 
     loader: DataLoader, 
@@ -307,7 +308,7 @@ def train_one_epoch(
     epoch_acc = (correct / total) * 100
     return epoch_loss, epoch_acc
 
-
+#validation to check model performance
 def validate(
     model: nn.Module, 
     loader: DataLoader, 
@@ -384,7 +385,7 @@ def main():
     }
     if os.path.exists(checkpoint_path):
         try:
-            start_epoch, _ = load_checkpoint(
+            start_epoch, loss , history = load_checkpoint(
                 model, optimizer, checkpoint_path, device
             )
         except Exception as e:
@@ -395,6 +396,7 @@ def main():
     if start_epoch >= num_epochs:
             print(f"\nModel has already been trained for {start_epoch} epochs. Target is {num_epochs}.")
             print("To train for more epochs, increase the --epochs argument.")
+
     # --- 4. The Training Loop ---
     else:
         print(f"\n--- Starting Training from Epoch {start_epoch+1} ---")
