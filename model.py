@@ -442,6 +442,7 @@ def main():
     train = args.train
     store_activation = args.store_activation
     inference = args.inference
+    model = AlexNet(num_classes=num_classes).to(device)
 
     # For Training the Model.
     if train == True and store_activation == False :
@@ -458,7 +459,6 @@ def main():
         )
 
         # --- 2. Initialize Model, Loss, and Optimizer ---
-        model = AlexNet(num_classes=num_classes).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.AdamW(
             model.parameters(), 
@@ -539,10 +539,8 @@ def main():
 
 
     if inference == True and train == False:
-
         print("Loading model and weights...")
         model = AlexNet(num_classes=num_classes).to(device)
-
         try:
             checkpoint = torch.load(checkpoint_path, map_location=device)
             if "model_state_dict" in checkpoint:
@@ -622,7 +620,6 @@ def main():
             # helper for ensure directory exit
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
-            print(f"Using device: {device}")
             try:
                 if TARGET_BLOCK_INDEX < 0 or TARGET_BLOCK_INDEX >= n_layer:
                     raise IndexError(f"TARGET_BLOCK_INDEX ({TARGET_BLOCK_INDEX}) out of range for {n_layer} layers.")
@@ -654,13 +651,8 @@ def main():
 
                     batch_activations = activation_storage['activation']
                     current_batch_size = batch_activations.shape[0]
-                    print(current_batch_size)
                     
                     for i in range(current_batch_size):
-                        # dataset_idx = batch_idx * dataloader.batch_size + i
-                        # if dataset_idx >= len(original_filepaths):
-                        #     continue
-
                         single_activation = batch_activations[i]
                         original_filename = os.path.basename(img_paths[i])
                         filename_base, _ = os.path.splitext(original_filename)
@@ -678,7 +670,7 @@ def main():
                             torch.save(single_activation, save_path)
                             saved_count += 1
                         except Exception as e:
-                            print(f"\nError saving activation for index {dataset_idx} ({save_filename}): {e}")
+                            print(f"\nError saving activation for {img_paths} ({save_filename}): {e}")
 
                     activation_storage['activation'] = None
 
