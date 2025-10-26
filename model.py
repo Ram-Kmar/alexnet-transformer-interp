@@ -21,7 +21,9 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.nn import functional as F
 from typing import Tuple
-
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+import glob
 # -----------Config for alexnet + transformer - decoder-block --------------
 
 device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -375,7 +377,39 @@ def get_activation_hook(name):
             activation_storage[name] = output.detach().cpu()
 
         return hook
-         
+class CustomImageDataset(Dataset):
+    def __init__(self, folder_path, transform=None):
+        """
+        Args:
+            folder_path (string): Path to the folder with images.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        # Find all .jpg images in the folder
+        self.image_paths = sorted(glob.glob(os.path.join(folder_path, '*.jpg')))
+        self.transform = transform
+
+    def __len__(self):
+        """Returns the total number of images."""
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        """
+        Loads and returns one image.
+        """
+        # Get image path
+        img_path = self.image_paths[idx]
+        
+        # Load image with PIL
+        # .convert("RGB") is important to ensure 3 channels
+        image = Image.open(img_path).convert("RGB") 
+
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+            
+        # For inference, we only need to return the image
+        # We also return the path, which can be useful
+        return image, img_path        
 
 # --- 4. Main Execution ---
 def main():
@@ -410,7 +444,6 @@ def main():
     train = args.train
     store_activation = args.store_activation
     inference = args.inference
-    print("hello",train)
 
     # For Training the Model.
     if train == True and store_activation == False :
@@ -541,12 +574,48 @@ def main():
 
         print("Loading dataset...")
         try:
-            image_dataset = datasets.ImageFolder(DATASET_PATH, transform=preprocess)
+            # We use DATA_FOLDER, which you defined as 'data'
+            image_dataset = CustomImageDataset(folder_path=DATASET_PATH, transform=preprocess)
             dataloader = DataLoader(image_dataset, batch_size=batch_size, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
-            print(f"Dataset loaded with {len(image_dataset)} images.")
-        except FileNotFoundError:
-            print(f"ERROR: Dataset not found at {DATASET_PATH}. Please set the correct path.")
+            print(f"Custom dataset loaded with {len(image_dataset)} images.")
+            
+            if len(image_dataset) == 0:
+                 print(f"WARNING: No images found in '{DATASET_PATH}'. Make sure images are in that folder.")
+                 exit()
+                 
+        except Exception as e:
+            print(f"ERROR: Could not load CustomImageDataset from '{DATASET_PATH}'. Error: {e}")
             exit()
+        all_predictions = []
+
+        with torch.no_grad():
+            # Your CustomDataloader returns (images, img_paths)
+            for images, img_paths in tqdm.tqdm(dataloader, desc="Running Inference"):
+                images = images.to(device)
+                
+                # Run the model
+                outputs = model(images) 
+                
+                # Get the class predictions
+                # outputs shape is [batch_size, num_classes]
+                _, preds = torch.max(outputs, 1) 
+                
+                # Store predictions and paths
+                all_predictions.extend(zip(img_paths, preds.cpu().numpy()))
+
+        # --- Print the results ---
+        print("\n--- Inference Complete ---")
+        for img_path, pred_index in all_predictions:
+            # Use the CLASS_NAMES list you defined at the top
+            pred_class_name = CLASS_NAMES[pred_index]
+            print(f"File: {os.path.basename(img_path)} -> Prediction: {pred_class_name} (Class {pred_index})")
+        # try:
+        #     image_dataset = datasets.ImageFolder(DATASET_PATH, transform=preprocess)
+        #     dataloader = DataLoader(imkkage_dataset, batch_size=batch_size, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
+        #     print(f"Dataset loaded with {len(image_dataset)} images.")
+        # except FileNotFoundError:
+        #     print(f"ERROR: Dataset not found at {DATASET_PATH}. Please set the correct path.")
+        #     exit()
         #-- put the inference code here---
 
         # # --- Hook Setup ---
