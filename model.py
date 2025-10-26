@@ -47,6 +47,12 @@ TARGET_BLOCK_INDEX = 6 # 7th block is index 6 (Residual Stream Output)
 NUM_WORKERS = os.cpu_count() // 2 if os.cpu_count() else 4
 PIN_MEMORY = False if device.type == 'mps' else True
 IMG_SIZE = 224 # Image size your model expects
+# -----------------Class names for decoding----------------
+CLASS_NAMES = [
+    "tench", "English springer", "cassette player", "chain saw", "church", 
+    "French horn", "garbage truck", "gas pump", "golf ball", "parachute"
+]
+
 
 # --- Helper: Ensure Output Directory Exists ---
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -494,7 +500,7 @@ def main():
             print(f"Final model and checkpoint saved to {checkpoint_path}")
 
 
-    if store_activation and train == False:
+    if store_activation == True and train == False:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
         print(f"Using device: {device}")
