@@ -43,7 +43,7 @@ dropout = 0.5
 
 # ------------ Config for collect activation of model ---------------------- 
 
-DATASET_PATH = 'data' # IMPORTANT: Set this path
+DATASET_PATH = 'image' # IMPORTANT: Set this path
 OUTPUT_DIR = 'activation_dataset_block6_resid' # Directory to save activations
 TARGET_BLOCK_INDEX = 6 # 7th block is index 6 (Residual Stream Output)
 NUM_WORKERS = os.cpu_count() // 2 if os.cpu_count() else 4
@@ -371,12 +371,13 @@ def get_activation_hook(name):
     """Hook function to capture output and store it."""
     def hook(module, input, output): # Correct arguments: module, input, output
         #Block output is the residual stream value for that block
+        print("hello----------------------------")
         if isinstance(output, tuple):
             activation_storage[name] = output[0].detach().cpu()
         else:
             activation_storage[name] = output.detach().cpu()
 
-        return hook
+    return hook
 class CustomImageDataset(Dataset):
     def __init__(self, folder_path, transform=None):
         """
@@ -444,6 +445,7 @@ def main():
     train = args.train
     store_activation = args.store_activation
     inference = args.inference
+    print("hello",train)
 
     # For Training the Model.
     if train == True and store_activation == False :
@@ -619,9 +621,9 @@ def main():
         #-- put the inference code here---
 
         # # --- Hook Setup ---
-        # global activation_storage, hook_handle # Declare as global if hook function is outside main
-        # activation_storage = {'activation': None}
-        # hook_handle = None
+        global activation_storage, hook_handle # Declare as global if hook function is outside main
+        activation_storage = {'activation': None}
+        hook_handle = None
         if store_activation:
             try:
                 if TARGET_BLOCK_INDEX < 0 or TARGET_BLOCK_INDEX >= n_layer:
@@ -636,31 +638,33 @@ def main():
             print("Starting activation collection...")
             saved_count = 0
             file_indices = {}
-            original_filepaths = [item[0] for item in image_dataset.samples]
+            # original_filepaths = [item[0] for item in image_dataset]
+            # print(original_filepaths)
 
             with torch.no_grad():
-                for batch_idx, (inputs, _) in enumerate(tqdm.tqdm(dataloader, desc="Processing Batches")):
-                    inputs = inputs.to(device)
+                for images, img_paths in tqdm.tqdm(dataloader, desc="Processing Batches"):
+                    inputs = images.to(device)
                     try:
                         _ = model(inputs)
                     except Exception as e:
-                        print(f"\nError during forward pass on batch {batch_idx}: {e}")
+                        print(f"\nError during forward pass on batch : {e}")
                         continue
 
                     if activation_storage['activation'] is None:
-                        print(f"Warning: Hook did not capture any activation in batch {batch_idx}.")
+                        print(f"Warning: Hook did not capture any activation in batch.")
                         continue
 
                     batch_activations = activation_storage['activation']
                     current_batch_size = batch_activations.shape[0]
+                    print(current_batch_size)
                     
                     for i in range(current_batch_size):
-                        dataset_idx = batch_idx * dataloader.batch_size + i
-                        if dataset_idx >= len(original_filepaths):
-                            continue
+                        # dataset_idx = batch_idx * dataloader.batch_size + i
+                        # if dataset_idx >= len(original_filepaths):
+                        #     continue
 
                         single_activation = batch_activations[i]
-                        original_filename = os.path.basename(original_filepaths[dataset_idx])
+                        original_filename = os.path.basename(img_paths[i])
                         filename_base, _ = os.path.splitext(original_filename)
 
                         if filename_base not in file_indices:
