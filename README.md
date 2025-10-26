@@ -4,7 +4,7 @@
 
 ## Overview
 
-This repository provides a framework for training and applying **Sparse Autoencoders (SAEs)** to the internal activations of vision transformer models. The primary goal is to decompose a model's high-dimensional representations—specifically from the residual stream—into more sparse, monosemantic, and interpretable conceptual features.
+This repository provides a framework for training and applying **Sparse Autoencoders (SAEs)** to the internal activations of vision transformer models(AlexNet + Transformer-decoder). The primary goal is to decompose a model's high-dimensional representations—specifically from the residual stream—into more sparse, monosemantic, and interpretable conceptual features.
 
 The methodology is informed by current interpretability research, with methods drawing inspiration from recent advancements in feature analysis (e.g., techniques discussed in the Gemma Scope paper).
 
@@ -29,6 +29,7 @@ To train the vision model on a specified dataset (e.g., Imagenette), use the `--
 python model.py --train=True
 
 ### 2. Epochs 
+
 python model.py -e 10
 
 ###3. Inference
