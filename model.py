@@ -697,7 +697,7 @@ def main():
                 except Exception as e:
                     print(f"Error during verification load: {e}")
 
-    if store_activation == False and train == False:   
+    if store_activation == False and train == False and inference == False:   
         print("Provide task you want to do : --train=True or --store_activation=True or --inference=True" )
 
     # # --- 5. Plot and Save Curves ---
