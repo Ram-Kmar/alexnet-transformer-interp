@@ -49,14 +49,15 @@ TARGET_BLOCK_INDEX = 6 # 7th block is index 6 (Residual Stream Output)
 NUM_WORKERS = os.cpu_count() // 2 if os.cpu_count() else 4
 PIN_MEMORY = False if device.type == 'mps' else True
 IMG_SIZE = 224 # Image size your model expects
+
 # -----------------Class names for decoding----------------
+
 CLASS_NAMES = [
     "tench", "English springer", "cassette player", "chain saw", "church", 
     "French horn", "garbage truck", "gas pump", "golf ball", "parachute"
 ]
 
 
-# # --- Helper: Ensure Output Directory Exists ---
 
 #---------------Model---------------------
 
@@ -538,9 +539,6 @@ def main():
 
 
     if inference == True and train == False:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
-        print(f"Using device: {device}")
 
         print("Loading model and weights...")
         model = AlexNet(num_classes=num_classes).to(device)
@@ -606,6 +604,7 @@ def main():
             # Use the CLASS_NAMES list you defined at the top
             pred_class_name = CLASS_NAMES[pred_index]
             print(f"File: {os.path.basename(img_path)} -> Prediction: {pred_class_name} (Class {pred_index})")
+
         # try:
         #     image_dataset = datasets.ImageFolder(DATASET_PATH, transform=preprocess)
         #     dataloader = DataLoader(imkkage_dataset, batch_size=batch_size, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
@@ -613,13 +612,14 @@ def main():
         # except FileNotFoundError:
         #     print(f"ERROR: Dataset not found at {DATASET_PATH}. Please set the correct path.")
         #     exit()
-        #-- put the inference code here---
 
         # # --- Hook Setup ---
-        global activation_storage, hook_handle # Declare as global if hook function is outside main
-        activation_storage = {'activation': None}
-        hook_handle = None
+        # global activation_storage, hook_handle # Declare as global if hook function is outside main
+        # activation_storage = {'activation': None}
+        # hook_handle = None
+
         if store_activation:
+            # helper for ensure directory exit
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
             print(f"Using device: {device}")
