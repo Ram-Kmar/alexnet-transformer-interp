@@ -399,10 +399,17 @@ def main():
         default=False,
         help='Store the activation from the layer you want!'
     )
+    parser.add_argument(
+        '--inference',
+        type=bool,
+        default=False,
+        help='inference the model'
+    )
     args = parser.parse_args()
     num_epochs = args.epochs  # This is our new "total epochs"
     train = args.train
     store_activation = args.store_activation
+    inference = args.inference
     print("hello",train)
 
     # For Training the Model.
@@ -500,7 +507,7 @@ def main():
             print(f"Final model and checkpoint saved to {checkpoint_path}")
 
 
-    if store_activation == True and train == False:
+    if inference == True and train == False:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
         print(f"Using device: {device}")
@@ -540,95 +547,95 @@ def main():
         except FileNotFoundError:
             print(f"ERROR: Dataset not found at {DATASET_PATH}. Please set the correct path.")
             exit()
+        #-- put the inference code here---
 
         # # --- Hook Setup ---
         # global activation_storage, hook_handle # Declare as global if hook function is outside main
         # activation_storage = {'activation': None}
         # hook_handle = None
+        if store_activation:
+            try:
+                if TARGET_BLOCK_INDEX < 0 or TARGET_BLOCK_INDEX >= n_layer:
+                    raise IndexError(f"TARGET_BLOCK_INDEX ({TARGET_BLOCK_INDEX}) out of range for {n_layer} layers.")
+                target_module = model.transformer.blocks[TARGET_BLOCK_INDEX]
+                hook_handle = target_module.register_forward_hook(get_activation_hook('activation'))
+                print(f"Hook registered on output of transformer block {TARGET_BLOCK_INDEX}.")
+            except Exception as e:
+                print(f"An unexpected error occurred during hook registration: {e}")
+                exit()
+            # --- Activation Collection Loop ---
+            print("Starting activation collection...")
+            saved_count = 0
+            file_indices = {}
+            original_filepaths = [item[0] for item in image_dataset.samples]
 
-        try:
-            if TARGET_BLOCK_INDEX < 0 or TARGET_BLOCK_INDEX >= n_layer:
-                raise IndexError(f"TARGET_BLOCK_INDEX ({TARGET_BLOCK_INDEX}) out of range for {n_layer} layers.")
-            target_module = model.transformer.blocks[TARGET_BLOCK_INDEX]
-            hook_handle = target_module.register_forward_hook(get_activation_hook('activation'))
-            print(f"Hook registered on output of transformer block {TARGET_BLOCK_INDEX}.")
-        except Exception as e:
-            print(f"An unexpected error occurred during hook registration: {e}")
-            exit()
-            
-        # --- Activation Collection Loop ---
-        print("Starting activation collection...")
-        saved_count = 0
-        file_indices = {}
-        original_filepaths = [item[0] for item in image_dataset.samples]
-
-        with torch.no_grad():
-            for batch_idx, (inputs, _) in enumerate(tqdm.tqdm(dataloader, desc="Processing Batches")):
-                inputs = inputs.to(device)
-                try:
-                    _ = model(inputs)
-                except Exception as e:
-                    print(f"\nError during forward pass on batch {batch_idx}: {e}")
-                    continue
-
-                if activation_storage['activation'] is None:
-                    print(f"Warning: Hook did not capture any activation in batch {batch_idx}.")
-                    continue
-
-                batch_activations = activation_storage['activation']
-                current_batch_size = batch_activations.shape[0]
-                
-                for i in range(current_batch_size):
-                    dataset_idx = batch_idx * dataloader.batch_size + i
-                    if dataset_idx >= len(original_filepaths):
+            with torch.no_grad():
+                for batch_idx, (inputs, _) in enumerate(tqdm.tqdm(dataloader, desc="Processing Batches")):
+                    inputs = inputs.to(device)
+                    try:
+                        _ = model(inputs)
+                    except Exception as e:
+                        print(f"\nError during forward pass on batch {batch_idx}: {e}")
                         continue
 
-                    single_activation = batch_activations[i]
-                    original_filename = os.path.basename(original_filepaths[dataset_idx])
-                    filename_base, _ = os.path.splitext(original_filename)
+                    if activation_storage['activation'] is None:
+                        print(f"Warning: Hook did not capture any activation in batch {batch_idx}.")
+                        continue
 
-                    if filename_base not in file_indices:
-                        file_indices[filename_base] = 0
-                    else:
-                        file_indices[filename_base] += 1
-                    instance_idx = file_indices[filename_base]
-
-                    save_filename = f"activation_block{TARGET_BLOCK_INDEX}_{filename_base}_{instance_idx:02d}.pt"
-                    save_path = os.path.join(OUTPUT_DIR, save_filename)
+                    batch_activations = activation_storage['activation']
+                    current_batch_size = batch_activations.shape[0]
                     
-                    try:
-                        torch.save(single_activation, save_path)
-                        saved_count += 1
-                    except Exception as e:
-                        print(f"\nError saving activation for index {dataset_idx} ({save_filename}): {e}")
+                    for i in range(current_batch_size):
+                        dataset_idx = batch_idx * dataloader.batch_size + i
+                        if dataset_idx >= len(original_filepaths):
+                            continue
 
-                activation_storage['activation'] = None
+                        single_activation = batch_activations[i]
+                        original_filename = os.path.basename(original_filepaths[dataset_idx])
+                        filename_base, _ = os.path.splitext(original_filename)
 
-        # --- Cleanup ---
-        if hook_handle:
-            hook_handle.remove()
-            print("Hook removed.")
+                        if filename_base not in file_indices:
+                            file_indices[filename_base] = 0
+                        else:
+                            file_indices[filename_base] += 1
+                        instance_idx = file_indices[filename_base]
 
-        print(f"\nActivation collection complete.")
-        print(f"Successfully saved {saved_count} activation tensors to '{OUTPUT_DIR}'.")
+                        save_filename = f"activation_block{TARGET_BLOCK_INDEX}_{filename_base}_{instance_idx:02d}.pt"
+                        save_path = os.path.join(OUTPUT_DIR, save_filename)
+                        
+                        try:
+                            torch.save(single_activation, save_path)
+                            saved_count += 1
+                        except Exception as e:
+                            print(f"\nError saving activation for index {dataset_idx} ({save_filename}): {e}")
 
-        # --- Optional: Verify saved file ---
-        if saved_count > 0:
-            try:
-                saved_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith('.pt')]
-                if saved_files:
-                    first_file = os.path.join(OUTPUT_DIR, saved_files[0])
-                    loaded_tensor = torch.load(first_file)
-                    print(f"Verified saving: Loaded '{saved_files[0]}' with shape {loaded_tensor.shape}")
-                    if loaded_tensor.shape != torch.Size([36, n_embd]):
-                        print(f"Warning: Loaded tensor shape {loaded_tensor.shape} does not match expected [36, {n_embd}]")
-                else:
-                    print("Could not verify saving: No .pt files found in output directory.")
-            except Exception as e:
-                print(f"Error during verification load: {e}")
+                    activation_storage['activation'] = None
+
+            # --- Cleanup ---
+            if hook_handle:
+                hook_handle.remove()
+                print("Hook removed.")
+
+            print(f"\nActivation collection complete.")
+            print(f"Successfully saved {saved_count} activation tensors to '{OUTPUT_DIR}'.")
+
+            # --- Optional: Verify saved file ---
+            if saved_count > 0:
+                try:
+                    saved_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith('.pt')]
+                    if saved_files:
+                        first_file = os.path.join(OUTPUT_DIR, saved_files[0])
+                        loaded_tensor = torch.load(first_file)
+                        print(f"Verified saving: Loaded '{saved_files[0]}' with shape {loaded_tensor.shape}")
+                        if loaded_tensor.shape != torch.Size([36, n_embd]):
+                            print(f"Warning: Loaded tensor shape {loaded_tensor.shape} does not match expected [36, {n_embd}]")
+                    else:
+                        print("Could not verify saving: No .pt files found in output directory.")
+                except Exception as e:
+                    print(f"Error during verification load: {e}")
 
     if store_activation == False and train == False:   
-        print("Provide task you want to do : --train=True or --store_activation=True")
+        print("Provide task you want to do : --train=True or --store_activation=True or --inference=True" )
 
     # # --- 5. Plot and Save Curves ---
     # # This will now plot the *full* history, even when resuming
