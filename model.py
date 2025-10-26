@@ -56,10 +56,7 @@ CLASS_NAMES = [
 ]
 
 
-# --- Helper: Ensure Output Directory Exists ---
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
-print(f"Using device: {device}")
+# # --- Helper: Ensure Output Directory Exists ---
 
 #---------------Model---------------------
 
@@ -371,13 +368,12 @@ def get_activation_hook(name):
     """Hook function to capture output and store it."""
     def hook(module, input, output): # Correct arguments: module, input, output
         #Block output is the residual stream value for that block
-        print("hello----------------------------")
         if isinstance(output, tuple):
             activation_storage[name] = output[0].detach().cpu()
         else:
             activation_storage[name] = output.detach().cpu()
-
     return hook
+
 class CustomImageDataset(Dataset):
     def __init__(self, folder_path, transform=None):
         """
@@ -445,7 +441,6 @@ def main():
     train = args.train
     store_activation = args.store_activation
     inference = args.inference
-    print("hello",train)
 
     # For Training the Model.
     if train == True and store_activation == False :
@@ -625,6 +620,9 @@ def main():
         activation_storage = {'activation': None}
         hook_handle = None
         if store_activation:
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            print(f"Saving activations to: {os.path.abspath(OUTPUT_DIR)}")
+            print(f"Using device: {device}")
             try:
                 if TARGET_BLOCK_INDEX < 0 or TARGET_BLOCK_INDEX >= n_layer:
                     raise IndexError(f"TARGET_BLOCK_INDEX ({TARGET_BLOCK_INDEX}) out of range for {n_layer} layers.")
